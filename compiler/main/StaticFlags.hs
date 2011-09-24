@@ -38,6 +38,9 @@ module StaticFlags (
 	-- profiling opts
 	opt_SccProfilingOn,
 
+        -- tracing opts
+        opt_SccTracingOn,
+
         -- Hpc opts
 	opt_Hpc,
 
@@ -285,6 +288,10 @@ opt_NoDebugOutput               = lookUp  (fsLit "-dno-debug-output")
 opt_SccProfilingOn :: Bool
 opt_SccProfilingOn		= lookUp  (fsLit "-fscc-profiling")
 
+-- tracing opts
+opt_SccTracingOn :: Bool
+opt_SccTracingOn                = lookUp (fsLit "-fscc-tracing")
+
 -- Hpc opts
 opt_Hpc :: Bool
 opt_Hpc				= lookUp (fsLit "-fhpc")  
@@ -407,6 +414,7 @@ data WayName
   = WayThreaded
   | WayDebug
   | WayProf
+  | WayTraces
   | WayEventLog
   | WayPar
   | WayGran
@@ -434,6 +442,7 @@ allowed_combination way = and [ x `allowedWith` y
 
 	WayProf `allowedWith` WayNDP		= True
 	WayThreaded `allowedWith` WayProf	= True
+	WayThreaded `allowedWith` WayTraces	= True
 	WayThreaded `allowedWith` WayEventLog	= True
 	_ `allowedWith` _ 			= False
 
@@ -513,6 +522,11 @@ way_details =
 	[ "-fscc-profiling"
 	, "-DPROFILING"
 	, "-optc-DPROFILING" ],
+
+    Way WayTraces "t" False "StackTraces"
+        [ "-fscc-tracing"
+        , "-DTRACING"
+        , "-optc-DTRACING" ],
 
     Way WayEventLog "l" True "RTS Event Logging"
 	[ "-DTRACING"
