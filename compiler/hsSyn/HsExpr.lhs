@@ -250,6 +250,7 @@ data HsExpr id
   | HsTick
      Int                                -- module-local tick number
      [id]                               -- variables in scope
+     Bool                               -- should update trace center
      (LHsExpr id)                       -- sub-expression
 
   | HsBinTick
@@ -503,13 +504,14 @@ ppr_expr (HsQuasiQuoteE qq)  = ppr qq
 ppr_expr (HsProc pat (L _ (HsCmdTop cmd _ _ _)))
   = hsep [ptext (sLit "proc"), ppr pat, ptext (sLit "->"), ppr cmd]
 
-ppr_expr (HsTick tickId vars exp)
+ppr_expr (HsTick tickId vars updateTc exp)
   = pprTicks (ppr exp) $
     hcat [ptext (sLit "tick<"),
     ppr tickId,
     ptext (sLit ">("),
     hsep (map pprHsVar vars),
     ppr exp,
+    ppr updateTc,
     ptext (sLit ")")]
 ppr_expr (HsBinTick tickIdTrue tickIdFalse exp)
   = pprTicks (ppr exp) $

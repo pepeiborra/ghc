@@ -769,14 +769,14 @@ the tail call property.  For example, see Trac #3403.
 \begin{code}
 mkOptTickBox :: Maybe (Int,[Id]) -> CoreExpr -> DsM CoreExpr
 mkOptTickBox Nothing e   = return e
-mkOptTickBox (Just (ix,ids)) e = mkTickBox ix ids e
+mkOptTickBox (Just (ix,ids)) e = mkTickBox ix ids True e
 
-mkTickBox :: Int -> [Id] -> CoreExpr -> DsM CoreExpr
-mkTickBox ix vars e = do
+mkTickBox :: Int -> [Id] -> Bool -> CoreExpr -> DsM CoreExpr
+mkTickBox ix vars updateTraceCenter e = do
        uq <- newUnique 	
        mod <- getModuleDs
-       let tick | opt_Hpc   = mkTickBoxOpId uq mod ix
-                | otherwise = mkBreakPointOpId uq mod ix
+       let tick | opt_Hpc || opt_SccTracingOn = mkTickBoxOpId uq mod ix updateTraceCenter
+                | otherwise = mkBreakPointOpId uq mod ix updateTraceCenter
        uq2 <- newUnique 	
        let occName = mkVarOcc "tick"
        let name = mkInternalName uq2 occName noSrcSpan   -- use mkSysLocal?
@@ -797,8 +797,8 @@ mkBinaryTickBox :: Int -> Int -> CoreExpr -> DsM CoreExpr
 mkBinaryTickBox ixT ixF e = do
        uq <- newUnique 	
        let bndr1 = mkSysLocal (fsLit "t1") uq boolTy 
-       falseBox <- mkTickBox ixF [] $ Var falseDataConId
-       trueBox  <- mkTickBox ixT [] $ Var trueDataConId
+       falseBox <- mkTickBox ixF [] False $ Var falseDataConId
+       trueBox  <- mkTickBox ixT [] False $ Var trueDataConId
        return $ Case e bndr1 boolTy
                        [ (DataAlt falseDataCon, [], falseBox)
                        , (DataAlt trueDataCon,  [], trueBox)

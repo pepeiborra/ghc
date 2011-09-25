@@ -92,11 +92,13 @@ deSugar hsc_env
                        return (emptyMessages,
                                Just ([], nilOL, [], [], NoStubs, hpcInfo, emptyModBreaks))
                    _        -> do
+                     let isInterpreted = target == HscInterpreted
                      (binds_cvr,ds_hpc_info, modBreaks)
 			 <- if (opt_Hpc
-				  || target == HscInterpreted)
-			       && (not (isHsBoot hsc_src))
-                              then addCoverageTicksToBinds dflags mod mod_loc
+                                  || opt_SccTracingOn
+				  || isInterpreted
+			       && (not (isHsBoot hsc_src)))
+                              then addCoverageTicksToBinds isInterpreted dflags mod mod_loc
                                                            (typeEnvTyCons type_env) binds 
                               else return (binds, hpcInfo, emptyModBreaks)
                      initDs hsc_env mod rdr_env type_env $ do

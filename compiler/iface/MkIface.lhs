@@ -1688,7 +1688,7 @@ toIfaceVar v = case isDataConWorkId_maybe v of
     _ | Just fcall <- isFCallId_maybe v            -> IfaceFCall fcall (toIfaceType (idType v))
 	  -- Foreign calls have special syntax
       | isExternalName name		           -> IfaceExt name
-      | Just (TickBox m ix) <- isTickBoxOp_maybe v -> IfaceTick m ix
+      | Just (TickBox m ix _) <- isTickBoxOp_maybe v -> IfaceTick m ix
       | otherwise			           -> IfaceLcl (getFS name)
   where name = idName v
 \end{code}

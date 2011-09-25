@@ -586,9 +586,9 @@ dsExpr (HsProc pat cmd) = dsProcExpr pat cmd
 Hpc Support 
 
 \begin{code}
-dsExpr (HsTick ix vars e) = do
+dsExpr (HsTick ix vars updateTraceCenter e) = do
   e' <- dsLExpr e
-  mkTickBox ix vars e'
+  mkTickBox ix vars updateTraceCenter e'
 
 -- There is a problem here. The then and else branches
 -- have no free variables, so they are open to lifting.

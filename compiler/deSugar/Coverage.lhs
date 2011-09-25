@@ -49,14 +49,15 @@ import qualified Data.Map as Map
 
 \begin{code}
 addCoverageTicksToBinds
-        :: DynFlags
+        :: Bool
+        -> DynFlags
         -> Module
         -> ModLocation          -- of the current module
         -> [TyCon]		-- type constructor in this module
         -> LHsBinds Id
         -> IO (LHsBinds Id, HpcInfo, ModBreaks)
 
-addCoverageTicksToBinds dflags mod mod_loc tyCons binds = 
+addCoverageTicksToBinds isInterpreted dflags mod mod_loc tyCons binds =
  case ml_hs_file mod_loc of
  Nothing -> return (binds, emptyHpcInfo False, emptyModBreaks)
  Just orig_file -> do
@@ -81,6 +82,7 @@ addCoverageTicksToBinds dflags mod mod_loc tyCons binds =
                       , inScope      = emptyVarSet
 		      , blackList    = Map.fromList [ (getSrcSpan (tyConName tyCon),()) 
 		                                    | tyCon <- tyCons ]
+                      , interactive = isInterpreted
 		       })
 		   (TT 
 		      { tickBoxCount = 0
@@ -90,7 +92,7 @@ addCoverageTicksToBinds dflags mod mod_loc tyCons binds =
   let entries = reverse $ mixEntries st
 
   -- write the mix entries for this module
-  hashNo <- if opt_Hpc then do
+  hashNo <- if opt_Hpc || opt_SccTracingOn then do
      let hpc_dir = hpcDir dflags
 
      let hpc_mod_dir = if modulePackageId mod == mainPackageId 
@@ -204,12 +206,12 @@ addTickLHsExprAlways (L pos e0)
 
 addTickLHsExprNeverOrAlways :: LHsExpr Id -> TM (LHsExpr Id)
 addTickLHsExprNeverOrAlways e
-    | opt_Hpc   = addTickLHsExprNever e
+    | opt_Hpc || opt_SccTracingOn = addTickLHsExprNever e
     | otherwise = addTickLHsExprAlways e
 
 addTickLHsExprNeverOrMaybe :: LHsExpr Id -> TM (LHsExpr Id)
 addTickLHsExprNeverOrMaybe e
-    | opt_Hpc   = addTickLHsExprNever e
+    | opt_Hpc || opt_SccTracingOn = addTickLHsExprNever e
     | otherwise = addTickLHsExpr e
 
 -- version of addTick that does not actually add a tick,
@@ -262,37 +264,45 @@ addTickHsExpr e@(HsOverLit _) = return e
 addTickHsExpr e@(HsLit _) = return e
 addTickHsExpr (HsLam matchgroup) =
         liftM HsLam (addTickMatchGroup matchgroup)
-addTickHsExpr (HsApp e1 e2) = 
-	liftM2 HsApp (addTickLHsExprNever e1) (addTickLHsExpr e2)
-addTickHsExpr (OpApp e1 e2 fix e3) = 
-	liftM4 OpApp 
+addTickHsExpr e@(HsApp e1 e2)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 HsApp (addTickLHsExprNever e1) (addTickLHsExpr e2)
+addTickHsExpr e@(OpApp e1 e2 fix e3)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM4 OpApp 
 		(addTickLHsExpr e1) 
 		(addTickLHsExprNever e2)
 		(return fix)
 		(addTickLHsExpr e3)
-addTickHsExpr (NegApp e neg) =
-	liftM2 NegApp
+addTickHsExpr e0@(NegApp e neg)
+  | opt_SccTracingOn = return e0
+  | otherwise = liftM2 NegApp
 		(addTickLHsExpr e) 
 		(addTickSyntaxExpr hpcSrcSpan neg)
 addTickHsExpr (HsPar e) = liftM HsPar (addTickLHsExprNeverOrMaybe e)
-addTickHsExpr (SectionL e1 e2) = 
-	liftM2 SectionL
+addTickHsExpr e@(SectionL e1 e2)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 SectionL
 		(addTickLHsExpr e1)
 		(addTickLHsExpr e2)
-addTickHsExpr (SectionR e1 e2) = 
-	liftM2 SectionR
+addTickHsExpr e@(SectionR e1 e2)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 SectionR
 		(addTickLHsExpr e1)
 		(addTickLHsExpr e2)
-addTickHsExpr (ExplicitTuple es boxity) =
-        liftM2 ExplicitTuple
+addTickHsExpr e0@(ExplicitTuple es boxity)
+  | opt_SccTracingOn = return e0
+  | otherwise = liftM2 ExplicitTuple
                 (mapM addTickTupArg es)
                 (return boxity)
-addTickHsExpr (HsCase e mgs) = 
-	liftM2 HsCase
+addTickHsExpr e0@(HsCase e mgs)
+  | opt_SccTracingOn = return e0
+  | otherwise = liftM2 HsCase
 		(addTickLHsExpr e) 
 		(addTickMatchGroup mgs)
-addTickHsExpr (HsIf cnd e1 e2 e3) = 
-	liftM3 (HsIf cnd)
+addTickHsExpr e@(HsIf cnd e1 e2 e3)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM3 (HsIf cnd)
 		(addBinTickLHsExpr (BinBox CondBinBox) e1)
 		(addTickLHsExprOptAlt True e2)
 		(addTickLHsExprOptAlt True e3)
@@ -301,28 +311,34 @@ addTickHsExpr (HsLet binds e) =
 	liftM2 HsLet
 		(addTickHsLocalBinds binds) -- to think about: !patterns.
                 (addTickLHsExprNeverOrAlways e)
-addTickHsExpr (HsDo cxt stmts srcloc) 
-  = do { (stmts', _) <- addTickLStmts' forQual stmts (return ())
-       ; return (HsDo cxt stmts' srcloc) }
+
+addTickHsExpr (HsDo cxt stmts srcloc) = do
+        (stmts', last_exp') <- addTickLStmts' forQual stmts 
+                                     (return ())
+	return (HsDo cxt stmts' srcloc)
   where
 	forQual = case cxt of
 		    ListComp -> Just $ BinBox QualBinBox
 		    _        -> Nothing
-addTickHsExpr (ExplicitList ty es) = 
-	liftM2 ExplicitList
+addTickHsExpr e@(ExplicitList ty es)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 ExplicitList
 		(return ty)
 		(mapM (addTickLHsExpr) es)
-addTickHsExpr (ExplicitPArr ty es) =
-	liftM2 ExplicitPArr
+addTickHsExpr e@(ExplicitPArr ty es)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 ExplicitPArr
 		(return ty)
 		(mapM (addTickLHsExpr) es)
-addTickHsExpr (RecordCon id ty rec_binds) = 
-	liftM3 RecordCon
+addTickHsExpr e@(RecordCon id ty rec_binds)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM3 RecordCon
 		(return id)
 		(return ty)
 		(addTickHsRecordBinds rec_binds)
-addTickHsExpr (RecordUpd e rec_binds cons tys1 tys2) =
-	liftM5 RecordUpd
+addTickHsExpr e0@(RecordUpd e rec_binds cons tys1 tys2)
+  | opt_SccTracingOn = return e0
+  | otherwise = liftM5 RecordUpd
 		(addTickLHsExpr e)
 		(addTickHsRecordBinds rec_binds)
 		(return cons) (return tys1) (return tys2)
@@ -332,24 +348,31 @@ addTickHsExpr (ExprWithTySigOut e ty) =
 		(addTickLHsExprNever e) -- No need to tick the inner expression
 				    -- for expressions with signatures
 		(return ty)
-addTickHsExpr (ArithSeq	 ty arith_seq) =
-	liftM2 ArithSeq	
+addTickHsExpr e@(ArithSeq ty arith_seq)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 ArithSeq	
 		(return ty)
 		(addTickArithSeqInfo arith_seq)
 addTickHsExpr (HsTickPragma _ (L pos e0)) = do
     e2 <- allocTickBox (ExpBox False) pos $
                 addTickHsExpr e0
     return $ unLoc e2
-addTickHsExpr (PArrSeq	 ty arith_seq) =
-	liftM2 PArrSeq	
+addTickHsExpr e@(PArrSeq ty arith_seq)
+  | opt_SccTracingOn = return e
+  | otherwise = liftM2 PArrSeq	
 		(return ty)
 		(addTickArithSeqInfo arith_seq)
-addTickHsExpr (HsSCC nm e) =
-        liftM2 HsSCC 
+addTickHsExpr (HsSCC nm e@(L pos e0))
+  | opt_SccTracingOn
+      = liftM unLoc $
+        allocTickBox (TopLevelBox [unpackFS nm]) pos $
+        addTickHsExpr e0
+  | otherwise = liftM2 HsSCC
                 (return nm)
                 (addTickLHsExpr e)
-addTickHsExpr (HsCoreAnn nm e) = 
-        liftM2 HsCoreAnn 
+addTickHsExpr e0@(HsCoreAnn nm e)
+  | opt_SccTracingOn = return e0
+  | otherwise = liftM2 HsCoreAnn
                 (return nm)
                 (addTickLHsExpr e)
 addTickHsExpr e@(HsBracket     {}) = return e
@@ -368,6 +391,8 @@ addTickHsExpr e@(HsType _) = return e
 
 -- Others dhould never happen in expression content.
 addTickHsExpr e  = pprPanic "addTickHsExpr" (ppr e)
+
+-- CONTINUE REVIEWI
 
 addTickTupArg :: HsTupArg Id -> TM (HsTupArg Id)
 addTickTupArg (Present e)  = do { e' <- addTickLHsExpr e; return (Present e') }
@@ -679,10 +704,11 @@ data TickTransState = TT { tickBoxCount:: Int
                          , mixEntries  :: [MixEntry_]
                          }                        
 
-data TickTransEnv = TTE { fileName      :: FastString
+data TickTransEnv = TTE { fileName     :: FastString
 			, declPath     :: [String]
                         , inScope      :: VarSet
-			, blackList   :: Map SrcSpan ()
+			, blackList    :: Map SrcSpan ()
+                        , interactive  :: Bool
 			}
 
 --	deriving Show
@@ -782,8 +808,12 @@ allocTickBox boxLabel pos m | isGoodSrcSpan' pos =
         ids = occEnvElts fvs
         mes = mixEntries st
         me = (pos, declPath env, map (nameOccName.idName) ids, boxLabel)
+        updateTC = case boxLabel of
+                     TopLevelBox _ -> True
+                     LocalBox _ -> True
+                     _ -> False
     in
-    ( L pos (HsTick c ids (L pos e))
+    ( L pos (HsTick c ids updateTC (L pos e))
     , fvs
     , st {tickBoxCount=c+1,mixEntries=me:mes}
     )
@@ -822,7 +852,7 @@ allocBinTickBox boxLabel pos m
       c = tickBoxCount st
       mes = mixEntries st
   in 
-             ( L pos $ HsTick c [] $ L pos $ HsBinTick (c+1) (c+2) (L pos e)
+             ( L pos $ HsTick c [] False $ L pos $ HsBinTick (c+1) (c+2) (L pos e)
            -- notice that F and T are reversed,
            -- because we are building the list in
            -- reverse...

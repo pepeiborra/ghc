@@ -787,18 +787,22 @@ mkFCallId uniq fcall ty
 --
 -- The breakpoint Id will be applied to a list of arbitrary free variables,
 -- which is why it needs a polymorphic type.
+--
+-- A plain HPC tick box can be user for coverage or for generating the stack trace.
+-- We set the updateTraceCenter flag to be always true, since it will be honored
+-- only when compiling in the tracing way (and ignored otherwise)
 
-mkTickBoxOpId :: Unique -> Module -> TickBoxId -> Id
-mkTickBoxOpId uniq mod ix = mkTickBox' uniq mod ix realWorldStatePrimTy
+mkTickBoxOpId :: Unique -> Module -> TickBoxId -> Bool -> Id
+mkTickBoxOpId uniq mod ix updateTC = mkTickBox' uniq mod ix updateTC realWorldStatePrimTy
 
-mkBreakPointOpId :: Unique -> Module -> TickBoxId -> Id
-mkBreakPointOpId uniq mod ix = mkTickBox' uniq mod ix ty
+mkBreakPointOpId :: Unique -> Module -> TickBoxId -> Bool -> Id
+mkBreakPointOpId uniq mod ix updateTC = mkTickBox' uniq mod ix updateTC ty
  where ty = mkSigmaTy [openAlphaTyVar] [] openAlphaTy
 
-mkTickBox' :: Unique -> Module -> TickBoxId -> Type -> Id
-mkTickBox' uniq mod ix ty = mkGlobalId (TickBoxOpId tickbox) name ty info    
+mkTickBox' :: Unique -> Module -> TickBoxId -> Bool -> Type -> Id
+mkTickBox' uniq mod ix updateTC ty = mkGlobalId (TickBoxOpId tickbox) name ty info
   where
-    tickbox = TickBox mod ix
+    tickbox = TickBox mod ix updateTC
     occ_str = showSDoc (braces (ppr tickbox))
     name    = mkTickBoxOpName uniq occ_str
     info    = noCafIdInfo

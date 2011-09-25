@@ -118,7 +118,7 @@ srtExpr _ e@(StgOpApp _ _ _)   = e
 
 srtExpr table (StgSCC cc expr) = StgSCC cc $! srtExpr table expr
 
-srtExpr table (StgTick m n expr) = StgTick m n $! srtExpr table expr
+srtExpr table (StgTick m n updateTC expr) = StgTick m n updateTC $! srtExpr table expr
 
 srtExpr table (StgCase scrut live1 live2 uniq srt alt_type alts)
  = StgCase expr' live1 live2 uniq srt' alt_type alts'

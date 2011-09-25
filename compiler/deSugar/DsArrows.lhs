@@ -557,9 +557,9 @@ dsCmd _ids local_vars env_ids _stack _res_ty (HsArrForm op _ args) = do
             unionVarSets fv_sets)
 
 
-dsCmd ids local_vars env_ids stack res_ty (HsTick ix vars expr) = do
+dsCmd ids local_vars env_ids stack res_ty (HsTick ix vars updateTC expr) = do
     (expr1,id_set) <- dsLCmd ids local_vars env_ids stack res_ty expr
-    expr2 <- mkTickBox ix vars expr1
+    expr2 <- mkTickBox ix vars updateTC expr1
     return (expr2,id_set)
 
 dsCmd _ _ _ _ _ c = pprPanic "dsCmd" (ppr c)

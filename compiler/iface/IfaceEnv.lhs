@@ -317,9 +317,10 @@ newIfaceNames occs
 
 \begin{code}
 tcIfaceTick :: Module -> Int -> IfL Id
-tcIfaceTick modName tickNo 
+tcIfaceTick modName tickNo
   = do { uniq <- newUnique
-       ; return $ mkTickBoxOpId uniq modName tickNo
+       ; return $ mkTickBoxOpId uniq modName tickNo False
+                     -- Is setting the updateTC flag ^^ ok here?
        }
 \end{code}
 

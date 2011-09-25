@@ -558,7 +558,8 @@ type TickBoxId = Int
 -- | Tick box for Hpc-style coverage
 data TickBoxOp 
    = TickBox Module {-# UNPACK #-} !TickBoxId
+                    {-# UNPACK #-} !Bool     -- | True <=> Update current Trace Center
 
 instance Outputable TickBoxOp where
-    ppr (TickBox mod n)         = ptext (sLit "tick") <+> ppr (mod,n)
+    ppr (TickBox mod n _)        = ptext (sLit "tick") <+> ppr (mod,n)
 \end{code}

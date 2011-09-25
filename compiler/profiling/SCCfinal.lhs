@@ -195,9 +195,9 @@ stgMassageForProfiling dflags this_pkg mod_name us stg_binds
           (b,e) <- do_let b e
           return (StgLetNoEscape lvs1 lvs2 b e)
 
-    do_expr (StgTick m n expr) = do
+    do_expr (StgTick m n updateTC expr) = do
           expr' <- do_expr expr
-          return (StgTick m n expr')
+          return (StgTick m n updateTC expr')
 
     do_expr other = pprPanic "SCCfinal.do_expr" (ppr other)
 
