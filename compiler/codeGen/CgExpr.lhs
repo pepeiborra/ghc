@@ -41,6 +41,7 @@ import Maybes
 import ListSetOps
 import BasicTypes
 import Util
+import FastString
 import Outputable
 \end{code}
 
@@ -267,7 +268,12 @@ cgExpr (StgSCC cc expr) = do emitSetCCC cc; cgExpr expr
 %********************************************************
 
 \begin{code}
-cgExpr (StgTick m n expr) = do cgTickBox m n; cgExpr expr
+cgExpr (StgTick m n updateTC expr) = do
+    cgTickBox m n
+    whenC updateTC $ do
+        let cc = mkUserCC (mkFastString $ show n) m
+        emitSetCCC cc
+    cgExpr expr
 \end{code}
 
 %********************************************************

@@ -345,9 +345,9 @@ coreToStgExpr (Note (SCC cc) expr) = do
     return (StgSCC cc expr2, fvs, escs)
 
 coreToStgExpr (Case (Var id) _bndr _ty [(DEFAULT,[],expr)])
-  | Just (TickBox m n) <- isTickBoxOp_maybe id = do
+  | Just (TickBox m n updateTC) <- isTickBoxOp_maybe id = do
     (expr2, fvs, escs) <- coreToStgExpr expr
-    return (StgTick m n expr2, fvs, escs)
+    return (StgTick m n updateTC expr2, fvs, escs)
 
 coreToStgExpr (Note _ expr)
   = coreToStgExpr expr

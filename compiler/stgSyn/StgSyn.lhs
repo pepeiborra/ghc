@@ -392,6 +392,7 @@ Finally for @scc@ expressions we introduce a new STG construct.
   | StgTick
     Module			-- the module of the source of this tick
     Int				-- tick number
+    Bool                        -- should update current Trace Center
     (GenStgExpr bndr occ)	-- sub expression
   -- end of GenStgExpr
 \end{code}
@@ -768,8 +769,8 @@ pprStgExpr (StgSCC cc expr)
   = sep [ hsep [ptext (sLit "_scc_"), ppr cc],
 	  pprStgExpr expr ]
 
-pprStgExpr (StgTick m n expr)
-  = sep [ hsep [ptext (sLit "_tick_"),  pprModule m,text (show n)],
+pprStgExpr (StgTick m n updateTC expr)
+  = sep [ hsep [ptext (sLit "_tick_"),  pprModule m,text (show n), ppr updateTC],
 	  pprStgExpr expr ]
 
 pprStgExpr (StgCase expr lvs_whole lvs_rhss bndr srt alt_type alts)
