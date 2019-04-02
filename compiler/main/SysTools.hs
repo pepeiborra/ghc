@@ -306,6 +306,7 @@ initSysTools mbMinusB
                     sOpt_P_fingerprint = fingerprint0,
                     sOpt_F       = [],
                     sOpt_c       = [],
+                    sOpt_cxx     = [],
                     sOpt_a       = [],
                     sOpt_l       = [],
                     sOpt_windres = [],

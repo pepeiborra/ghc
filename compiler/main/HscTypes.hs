@@ -29,6 +29,7 @@ module HscTypes (
         ModGuts(..), CgGuts(..), ForeignStubs(..), appendStubC,
         ImportedMods, ImportedBy(..), importedByUser, ImportedModsVal(..), SptEntry(..),
         ForeignSrcLang(..),
+        phaseForeignLanguage,
 
         ModSummary(..), ms_imps, ms_installed_mod, ms_mod_name, showModMsg, isBootSummary,
         msHsFilePath, msHiFilePath, msObjFilePath,
@@ -188,6 +189,7 @@ import Packages hiding  ( Version(..) )
 import CmdLineParser
 import DynFlags
 import DriverPhases     ( Phase, HscSource(..), isHsBootOrSig, hscSourceString )
+import qualified DriverPhases as Phase
 import BasicTypes
 import IfaceSyn
 import Maybes
@@ -3252,3 +3254,13 @@ moduleRetainsAllBindings hsc_env mod
               case thisModSummary of
                 Just summary -> Just fp == (ml_hs_file . ms_location) summary
                 Nothing -> False
+
+-- | Foreign language of the phase if the phase deals with a foreign code
+phaseForeignLanguage :: Phase -> Maybe ForeignSrcLang
+phaseForeignLanguage phase = case phase of
+  Phase.Cc           -> Just LangC
+  Phase.Ccxx         -> Just LangCxx
+  Phase.Cobjc        -> Just LangObjc
+  Phase.Cobjcxx      -> Just LangObjcxx
+  Phase.HCc          -> Just LangC
+  _                  -> Nothing
