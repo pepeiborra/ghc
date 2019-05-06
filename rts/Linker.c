@@ -2024,6 +2024,12 @@ void * loadNativeObj (pathchar *path, char **errmsg)
    void *r = loadNativeObj_ELF(path, errmsg);
    RELEASE_LOCK(&linker_mutex);
    return r;
+
+#if defined(PROFILING)
+    // collect any new cost centres & CCSs that were defined during runInit
+   initProfiling2();
+#endif
+
 #else
    UNUSED(path);
    UNUSED(errmsg);
