@@ -77,6 +77,8 @@ $(includes_H_VERSION) : mk/project.mk | $$(dir $$@)/.
 	@echo '          && (pl1) == __GLASGOW_HASKELL_PATCHLEVEL1__ \'    >> $@
 	@echo '          && (pl2) <= __GLASGOW_HASKELL_PATCHLEVEL2__ )'    >> $@
 	@echo >> $@
+	@echo "#define __FACEBOOK_HASKELL__" >> $@
+	@echo >> $@
 	@echo "#endif /* __GHCVERSION_H__ */"          >> $@
 	@echo "Done."
 
